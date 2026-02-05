@@ -8,11 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 let initialized = false
 
 export async function initializeVectorDB() {
-
   if (initialized) return
 
   try {
-
     const file = path.join(__dirname, "../data/known_attacks.json")
     const raw = fs.readFileSync(file, "utf8")
 
@@ -26,7 +24,7 @@ export async function initializeVectorDB() {
     console.log("Local vector DB initialized")
 
   } catch (err) {
-
-    console.warn("Failed to load known attacks:", err.message)
+    console.error("Failed to load known attacks:", err.message)
+    throw err  // Don't set initialized = true on error
   }
 }

@@ -1,46 +1,65 @@
-import { pipeline } from "@xenova/transformers"
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-let model = null
+let genai = null;
+let embeddingModel = null;
 
-function sleep(ms) {
-  return new Promise(res => setTimeout(res, ms))
+function validateApiKey() {
+  if (!process.env.GOOGLE_API_KEY) {
+    throw new Error("GOOGLE_API_KEY environment variable is required");
+  }
 }
 
-async function loadModelWithRetry(retries = 3) {
+async function getEmbeddingModel() {
+  if (!embeddingModel) {
+    validateApiKey();
 
-  for (let i = 0; i < retries; i++) {
+    genai = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+    embeddingModel = genai.getGenerativeModel({ model: "text-embedding-004" });
 
-    try {
-      console.log("Loading embedding model...")
-
-      const m = await pipeline(
-        "feature-extraction",
-        "Xenova/all-MiniLM-L6-v2"
-      )
-
-      console.log("Embedding model ready")
-      return m
-
-    } catch (err) {
-
-      if (i === retries - 1) throw err
-
-      console.log(`Retry ${i + 1}/${retries}`)
-      await sleep(2000)
-    }
+    console.log("✓ Gemini embedding model initialized");
   }
+
+  return embeddingModel;
 }
 
 export async function embedText(text) {
-
-  if (!model) {
-    model = await loadModelWithRetry()
+  if (!text || typeof text !== "string") {
+    throw new Error("Text input is required and must be a string");
   }
 
-  const output = await model(text, {
-    pooling: "mean",
-    normalize: true
-  })
+  try {
+    const model = await getEmbeddingModel();
+    const result = await model.embedContent(text);
 
-  return Array.from(output.data)
+    if (!result.embedding || !result.embedding.values) {
+      throw new Error("Invalid embedding response from Gemini");
+    }
+
+    return result.embedding.values;
+  } catch (error) {
+    console.error("Failed to embed text:", error.message);
+
+    if (error.message.includes("API_KEY")) {
+      throw new Error(
+        "Invalid Google API key. Please check your GOOGLE_API_KEY environment variable.",
+      );
+    }
+
+    throw new Error(`Embedding failed: ${error.message}`);
+  }
+}
+
+export async function embedTexts(texts) {
+  if (!Array.isArray(texts)) {
+    throw new Error("Texts must be an array");
+  }
+
+  try {
+    const embeddings = await Promise.all(texts.map((text) => embedText(text)));
+
+    return embeddings;
+  } catch (error) {
+    console.error("Failed to embed texts:", error.message);
+    throw error;
+  }
 }
