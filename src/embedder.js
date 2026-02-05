@@ -1,24 +1,41 @@
 import { pipeline } from "@xenova/transformers"
 
-let embedder = null
+let model = null
 
-export async function getEmbedder() {
-  if (!embedder) {
-    console.log("Loading embedding model...")
-    
-    embedder = await pipeline(
-      "feature-extraction",
-      "Xenova/all-MiniLM-L6-v2"
-    )
+function sleep(ms) {
+  return new Promise(res => setTimeout(res, ms))
+}
 
-    console.log("Embedding model ready")
+async function loadModelWithRetry(retries = 3) {
+
+  for (let i = 0; i < retries; i++) {
+
+    try {
+      console.log("Loading embedding model...")
+
+      const m = await pipeline(
+        "feature-extraction",
+        "Xenova/all-MiniLM-L6-v2"
+      )
+
+      console.log("Embedding model ready")
+      return m
+
+    } catch (err) {
+
+      if (i === retries - 1) throw err
+
+      console.log(`Retry ${i + 1}/${retries}`)
+      await sleep(2000)
+    }
   }
-
-  return embedder
 }
 
 export async function embedText(text) {
-  const model = await getEmbedder()
+
+  if (!model) {
+    model = await loadModelWithRetry()
+  }
 
   const output = await model(text, {
     pooling: "mean",

@@ -11,14 +11,22 @@ export async function initializeVectorDB() {
 
   if (initialized) return
 
-  const file = path.join(__dirname, "../data/known_attacks.json")
+  try {
 
-  const attacks = JSON.parse(fs.readFileSync(file, "utf8"))
+    const file = path.join(__dirname, "../data/known_attacks.json")
+    const raw = fs.readFileSync(file, "utf8")
 
-  for (const attack of attacks) {
-    await addAttack(attack.text, attack)
+    const attacks = JSON.parse(raw)
+
+    for (const attack of attacks) {
+      await addAttack(attack.text, attack)
+    }
+
+    initialized = true
+    console.log("Local vector DB initialized")
+
+  } catch (err) {
+
+    console.warn("Failed to load known attacks:", err.message)
   }
-
-  initialized = true
-  console.log("Vector attack DB ready")
 }
