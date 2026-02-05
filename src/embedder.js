@@ -1,19 +1,30 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getConfig } from "./lib/qdrant.js";
 
 let genai = null;
 let embeddingModel = null;
 
 function validateApiKey() {
-  if (!process.env.GOOGLE_API_KEY) {
-    throw new Error("GOOGLE_API_KEY environment variable is required");
+  const config = getConfig();
+  if (!config.googleApiKey) {
+    throw new Error(
+      "Google API key is required. Provide via setConfig({ googleApiKey: 'your-key' }) or GOOGLE_API_KEY environment variable"
+    );
   }
+  return config.googleApiKey;
+}
+
+// Reset embedding model when config changes
+export function resetEmbeddingModel() {
+  genai = null;
+  embeddingModel = null;
 }
 
 async function getEmbeddingModel() {
   if (!embeddingModel) {
-    validateApiKey();
+    const apiKey = validateApiKey();
 
-    genai = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+    genai = new GoogleGenerativeAI(apiKey);
     embeddingModel = genai.getGenerativeModel({ model: "text-embedding-004" });
 
     console.log("✓ Gemini embedding model initialized");
